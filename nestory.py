@@ -2,6 +2,7 @@
 from collections import defaultdict
 from datetime import datetime
 import json
+import os
 import random
 import time
 
@@ -201,6 +202,17 @@ def save_history(energy_history):
     with open('history.{:%m-%d-%Y}.json'.format(today), 'w+') as history_file:
         history_file.write(json.dumps(energy_history))
 
+def todays_history_file():
+    '''
+    '''
+    today = datetime.now()
+    history_file = 'history.{:%m-%d-%Y}.json'.format(today)
+    if os.path.exists(history_file):
+        with open(history_file, 'r') as history_file:
+            return json.load(history_file)
+    else:
+        return None
+
 
 # {u'cool_temp': 23.897,                     # Cool to temp.
 #  u'end': 31665,                            # <---- Seconds since the beginning of the day.
@@ -216,11 +228,13 @@ def save_history(energy_history):
 def celsius_to_fahrenheit(celsius):
     return celsius * 9 / 5 + 32
 
-
 if __name__ == '__main__':
-    login()
-    objects = get_objects()
-    energy_history = get_energy_history(objects)
+    energy_history = todays_history_file()
+    if not energy_history:
+        login()
+        objects = get_objects()
+        energy_history = get_energy_history(objects)
+
     process_energy_history(energy_history)
     save_history(energy_history)
 
