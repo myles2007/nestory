@@ -21,23 +21,23 @@ USER = None
 USER_ID = None
 
 # Pulled from v.EVENT_TYPE in Nest's main.js
-EVENT_TYPES = {0: 'Heat', 1: 'Cool', '2': 'Range', 3: 'Away',
-               4: 'Auto-Away', 5: 'Off', 6: 'Emergency Heat',
-               7: 'Sunblock'}
+EVENT_TYPES = defaultdict(str, {0: 'Heat', 1: 'Cool', 2: 'Range', 3: 'Away',
+                                4: 'Auto-Away', 5: 'Off', 6: 'Emergency Heat',
+                                7: 'Sunblock'})
 
 # Pulled from v.TOUCHED_BY in Nest's main.js
-TOUCHED_BY = {0: 'No one.', 1: 'Learning', 2: 'Local', 3: 'Remote',
-              4: 'Web', 5: 'Android', 6: 'iOS', 7: 'winphone',
-              8: 'Tune-up', 9: 'Demand Response', 10: 'Tou',
-              11: 'Safety Shutoff', 12: 'Programmer'}
+TOUCHED_BY = defaultdict(str, {0: 'No one.', 1: 'Learning', 2: 'Local', 3: 'Remote',
+                               4: 'Web', 5: 'Android', 6: 'iOS', 7: 'winphone',
+                               8: 'Tune-up', 9: 'Demand Response', 10: 'Tou',
+                               11: 'Safety Shutoff', 12: 'Programmer'})
 
 # Pulled from v.TOUCHED_WHERE in Nest's main.js
-TOUCHED_WHERE = {0: 'Unknown', 1: 'Schedule', 2: 'Ad Hoc'}
+TOUCHED_WHERE = defaultdict(str, {0: 'Unknown', 1: 'Schedule', 2: 'Ad Hoc'})
 
 # Pull from v.WHODUNIT_TYPEMAP in Nest's main.js
-WHODUNIT = {0: "user", 1: "weather", 2: "away", 3: "auto",
-            4: "tuneup", 5: "auto_dehum", 6: "demand_response",
-            7: "time_of_use"}
+WHODUNIT = defaultdict(str, {0: "user", 1: "weather", 2: "away", 3: "auto",
+                             4: "tuneup", 5: "auto_dehum", 6: "demand_response",
+                             7: "time_of_use"})
 
 # Cycle types pulled definition of _.m in Nest's main.js
 # Lookup is the bitwise AND of FAN and the returned type.
@@ -135,7 +135,38 @@ def process_energy_history(history):
 def process_energy_history_events(date, events):
     '''
     '''
-    pass
+    since_epoch = time.mktime(date.timetuple())
+    total_time = defaultdict(int)
+    for event in events:
+        time_format = '%a, %m/%d/%Y %H:%M:%S'
+        tz_offset = -18000
+
+        if 'start' in event:
+            start_time = time.gmtime(since_epoch + event['start'] + tz_offset)
+            end_time = time.gmtime(since_epoch + event['end'] + tz_offset)
+            event_time = None
+            when = "from {} - {}".format(time.strftime(time_format, start_time),
+                                         time.strftime(time_format, end_time))
+        else:
+            start_time, end_time = None, None
+            event_time = time.gmtime(event['touched_when'] + tz_offset)
+            when = "at {}".format(time.strftime(time_format, event_time))
+
+        details = {'event_type': EVENT_TYPES[event.get('type')],
+                   'event_time': event_time,
+                   'start_time': start_time,
+                   'end_time': end_time,
+                   'touched_by': TOUCHED_BY[event.get('touched_by')],
+                   'touched_where': TOUCHED_WHERE[event.get('touched_where')],
+                   'continuation': event.get('continuation', False),
+                   'when': when,
+                   'heat_temp': celsius_to_fahrenheit(event.get('heat_temp', 0)),
+                   'cool_temp': celsius_to_fahrenheit(event.get('cool_temp', 0))
+
+                  }
+
+        print("A(n) '{event_type}' event occurred {when} due to '{touched_by}' from '{touched_where}', "
+              "changing the temperature range to {heat_temp} (heat) and {cool_temp} (cool)'".format(**details))
 
 def process_energy_history_cycles(date, cycles):
     '''
@@ -181,6 +212,9 @@ def save_history(energy_history):
 #  u'touched_when': 1432216065,              # Exact time of change (seconds since Epoch)
 #  u'touched_where': 2,                      # ????
 #  u'type': 2}                               # ??? Away, Auto Away, Home??
+
+def celsius_to_fahrenheit(celsius):
+    return celsius * 9 / 5 + 32
 
 
 if __name__ == '__main__':
